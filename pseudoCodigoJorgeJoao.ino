@@ -19,35 +19,57 @@ const int controleDirecao = 0x01 // id arbitrario para essa propria controladora
     // state, limite de ajuste, realiza no Motor de feedback uma força contraia AjustfeedbackControl()
     class StabilityController(//controle de estabilidade
       public:
-        float torqueRodaTraseiraDireta;
         float torqueRodaDianteiraEsquerda;
+        float torqueRodaDianteiraDireita;
+        
+        float torqueRodaTraseiraDireta;
+        float torqueRodaTraseiraEsquerda;
+    
         float anguloRodaDianteiraDireita;
         float anguloRodaDianteiraEsquerda;
-        float torqueRodaTraseiraDireta;
-        float torqueRodaDianteiraEsquerda;
-        float estadoAtualComAjustes() // utiliza a variavel estado, e faz ajustes
+        
+        float ajustesTorqueFrontal;
+        float ajustesTorqueTraseiro;
+
+        float ajusteVolante;
+    
+        float estadoTraseiro;
+        float estadoDianteiro;
+
+        float estadoAtualComAjustesTorqueFrontal() // utiliza a variavel estado, e faz ajustes
+        float estadoAtualComAjustesTorqueTraseiro() // utiliza a variavel estado, e faz ajustes
        
         AjustfeedbackControl(); // Atua no Motor de feedback com base no estado para aumentar estabilidade
 
       private:
        float limitesDeAjustes; 
-       float ajustes;
-    
-    );
+      );
     
     void StabilityController::AjustfeedbackControl(){
-      torqueRodaTraseiraDireta
-      torqueRodaDianteiraEsquerda
-      anguloRodaDianteiraDireita
-      anguloRodaDianteiraEsquerda
-      torqueRodaTraseiraDireta
-      torqueRodaDianteiraEsquerda
-      ajustes = estado - limitesDeAjustes; // Calculos que utilizam a variavel estado para gerar os ajutes
-      analogWrite( pinoFeedBack, ajuste ); // ajuste de feedback
+      // AnguloRodaDianteiraDireita
+      // AnguloRodaDianteiraEsquerda
+      // Realiza calculos com as os Angulos das rodas para gerar a força de feedback
+      // Possibilitando quem está condozindo o volate a perceber o ambiente em que as rodas estão
+      // A força que o Volante exercerá será constante, não aumentando com relação ao angulo final do feedback
+      ajusteVolante = anguloRodaDianteiraDireita - anguloRodaDianteiraEsquerda - limitesDeAjustes; 
+      analogWrite( pinoFeedBack, ajustes ); // ajuste de feedback
     }
     
-    int StabilityController::estadoAtualComAjustes(){
-      return ajustes = estado - limitesDeAjustes // Calculos que utilizam a variavel estado para gerar os ajutes
+    float StabilityController::estadoAtualComAjustesTorqueFrontal(){
+      // A partir do torque real Frontal recebido pela IMU, o sistema realiza calculos de ajuste
+      // No torque que será transmitido de volta para as rodas frontais
+      return  torqueRodaDianteiraEsquerda - torqueRodaDianteiraDireita; 
+    }
+    float StabilityController::estadoAtualComAjustesTorqueTraseiro(){
+      // A partir do torque real Traeseiro recebido pela IMU, o sistema realiza calculos de ajuste
+      // No torque que será transmitido de volta para as rodas Traseiras
+       return estadoTraseiro - limitesDeAjustes;
+    }
+    float StabilityController::estadoAtualComAjustesAngulo(){
+      // A partir do Angulo retornado pela IMU das rodas dianteiras
+      // O sistema realiza ajustes no angulo enviado de volta para as rodas Dianteiras
+      // Para garantir a estabilidade do angulo das rodas 
+       return anguloRodaDianteiraDireita - anguloRodaDianteiraEsquerda - limitesDeAjustes; 
     }
         
 //-----------------------------------------------SteeringController-------------------------------------------
@@ -60,7 +82,8 @@ const int controleDirecao = 0x01 // id arbitrario para essa propria controladora
         float acelerador;
         float freio;
         float volante;
-        float estadoAjustadoTorque;
+        float estadoAjustadoTorqueDianteiro;
+        float estadoAjustadoTorqueTraseiro;
         float estadoAjustadoAngulo;
         
         float sendRodaDianteiraTorque();
@@ -76,12 +99,12 @@ const int controleDirecao = 0x01 // id arbitrario para essa propria controladora
       //precisa devolver o angulo e o torque para as rodas Dianteiras
       float SteeringController::sendRodaDianteiraTorque(){
         //antes precisa tratar as variaveis 
-        return ((aceleracador - freio)*pesoDoCarro*distanciaRodaDianteira) - estadoAjustadoTorque;
+        return ((aceleracador - freio)*pesoDoCarro*distanciaRodaDianteira) - estadoAjustadoTorqueFrontal;
       }
 
       //precisa devolver o angulo e o torque para as rodas Traseiras
       float SteeringController::sendRodaTraseiraTorque(){
-        return ((aceleracador - freio)*pesoDoCarro*distanciaRodaTraseira) - estadoAjustadoTorque;
+        return ((aceleracador - freio)*pesoDoCarro*distanciaRodaTraseira) - estadoAjustadoTorqueTraseiro;
       }
       
       float SteeringController::sendRodaAngulo(){
@@ -102,16 +125,16 @@ void sendCam(int id, float torqueFrontal, float torqueTraseiro, int angulo ){
   // Se houver dado disponivel na Serial para ser lido
   while (Serial.available() > 0)
   {   
-    canMsg.can_id  = id;                 //id arbitrario do dispositivo
-    canMsg.can_dlc = 6;                  //CAN data length = 1 (pode ser no máximo 8 bytes)
+    canMsg.can_id  = id;                //id arbitrario do dispositivo
+    canMsg.can_dlc = 6;                 //CAN data length = 1 (pode ser no máximo 8 bytes)
     canMsg.data[0] = torqueFrontal;             
     canMsg.data[1] = torqueFrontal;             
     canMsg.data[2] = torqueTraseiro;               
-    canMsg.data[3] = torqueTraseiro;               //CAN data3 = 0
-    canMsg.data[4] = angulo;               //CAN data4 = 0
-    canMsg.data[5] = angulo;               //CAN data5 = 0
-    canMsg.data[6] = 0x00;               //CAN data6 = 0
-    canMsg.data[7] = 0x00;               //CAN data7 = 0
+    canMsg.data[3] = torqueTraseiro;               
+    canMsg.data[4] = angulo;            
+    canMsg.data[5] = angulo;            
+    canMsg.data[6] = 0x00;              //CAN data6 = 0
+    canMsg.data[7] = 0x00;              //CAN data7 = 0
     //Enviar a Mensagem CAN - Transceiver colocará essa mensagem no barramento CAN
     mcp2515.sendMessage(&canMsg);
   }
@@ -128,10 +151,10 @@ byte readCamDianteira(){
       
       canMsg.can_id  = id;                 //id arbitrario do dispositivo
       canMsg.can_dlc = 6;                  //CAN data length = 1 (pode ser no máximo 8 bytes)
-      torqueRodaTraseiraDireta = canMsg.data[1]*256+canMsg.data[0];
-      torqueRodaDianteiraEsquerda = canMsg.data[3]*256+canMsg.data[2];
-      anguloRodaDianteiraDireita = canMsg.data[5]*256+canMsg.data[4];
-      anguloRodaDianteiraEsquerda = canMsg.data[7]*256+canMsg.data[6];
+      stabilityController->torqueRodaDianteiraDireta  = canMsg.data[1]*256+canMsg.data[0];
+      stabilityController->torqueRodaDianteiraEsquerda = canMsg.data[3]*256+canMsg.data[2];
+      stabilityController->anguloRodaDianteiraDireita = canMsg.data[5]*256+canMsg.data[4];
+      stabilityController->anguloRodaDianteiraEsquerda = canMsg.data[7]*256+canMsg.data[6];
                    
     }
   
@@ -147,8 +170,8 @@ byte readCamTraseira(){
       
       canMsg.can_id  = id;                 //id arbitrario do dispositivo
       canMsg.can_dlc = 6;                  //CAN data length = 1 (pode ser no máximo 8 bytes)
-      torqueRodaTraseiraDireta = canMsg.data[1]*256+canMsg.data[0];
-      torqueRodaDianteiraEsquerda = canMsg.data[3]*256+canMsg.data[2];
+      stabilityController->torqueRodaTraseiraDireta = canMsg.data[1]*256+canMsg.data[0];
+      stabilityController->torqueRodaTraseiraEsquerda = canMsg.data[3]*256+canMsg.data[2];
                    
     }
   
@@ -184,13 +207,19 @@ void loop() {
   steeringController-> volante    = analogRead(pinoVolante);
 
   if (mcp2515.readMessage(&canMsg) == MCP2515::ERROR_OK){
-    stabilityController-> estadoTorque = readCamTraseira(controladoraIMUTraseira);
-    stabilityController-> estadoDirecao = readCamDianteira(controladoraIMUDianteira);
+    readCamTraseira(controladoraIMUTraseira);
+    readCamDianteira(controladoraIMUDianteira);
     stabilityController-> AjustfeedbackControl();
-    steeringController-> estadoAjustado = stabilityController-> estadoAtualComAjustes() ;
+    steeringController-> estadoAjustadoTorqueDianteiro = stabilityController-> estadoAtualComAjustesTorqueFrontal() ;
+    steeringController-> estadoAjustadoTorqueTraseiro = stabilityController-> estadoAtualComAjustesTorqueTraseiro() ;
+    steeringController-> estadoAjustadoAngulo = stabilityController-> estadoAtualComAjustesAngulo() ;
   }
   
-  sendCam(controleDirecao, steeringController->sendRodaDianteiraTorque(), steeringController->sendRodaTraseiraTorque(), steeringController->sendRodaAngulo());
+  sendCam(controleDirecao, 
+          steeringController->sendRodaDianteiraTorque(), 
+          steeringController->sendRodaTraseiraTorque(), 
+          steeringController->sendRodaAngulo()
+  );
   
   
 }
